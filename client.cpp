@@ -12,16 +12,20 @@
 #define BUFF_SIZE 1024
 using namespace std;
 
-int read_message(int socket){
+void read_message(int socket){
   char buffer[BUFF_SIZE];
   memset(buffer, 0, BUFF_SIZE);
-  int readed_size = read(socket, buffer, BUFF_SIZE-1);
-  if(readed_size<=0){
-    cerr<<"connection closed by server"<<endl;
-    return 0;
-  }
+  int readed_size = recv(socket, buffer, BUFF_SIZE-1, 0);
   cout<<buffer<<endl;
-  return 1;
+}
+
+void send_message(int socket){
+  char buffer[BUFF_SIZE];
+  memset(buffer, 0, BUFF_SIZE);
+  cout<<"You: ";
+  string message;
+  getline(cin, message);
+  send(socket, message.c_str(), message.size(), 0);
 }
 
 void init_client(const char *ip, const char *port){
@@ -42,10 +46,13 @@ void init_client(const char *ip, const char *port){
     close(client_socket);
     exit(EXIT_FAILURE);
   }
+  string name;
+  getline(cin, name);
+  send(client_socket, name.c_str(), name.size(), 0);
+
   while(true){
-    if(!read_message(client_socket)){
-      break;  
-    }
+    read_message(client_socket);
+    send_message(client_socket);
   }
   cout<<"disconneting!"<<endl; 
   close(client_socket);

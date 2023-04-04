@@ -9,7 +9,6 @@
 #include <netdb.h>
 #include <cstring>
 #include <string>
-#include <pthread.h>
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -19,31 +18,41 @@
 #define MAX_CLIENTS 5
 using namespace std;
 mutex locker;
-
-struct server_codition{
-  int client_socket;
-  vector<int> client_list;
-};
+vector<int> sockets;
 
 void handle(int client_socket){
     char buffer[BUFF_SIZE];
     memset(buffer, 0, BUFF_SIZE);
+    string first_message = "Hello! Enter you name, please: ";
+    strcpy(buffer, first_message.c_str());
+    send(client_socket, first_message.c_str(), first_message.size(), 0);
+    memset(buffer, 0, BUFF_SIZE);
+    while(true){
+      int bytes_read = recv(client_socket, buffer, BUFF_SIZE-1, 0);
+      if(bytes_read == 0){
+        string first_message = "Enter your name!";
+        send(client_socket, first_message.c_str(), first_message.size(), 0);
+      }
+      break;
+    }
+
+    string client_name = buffer;
+    cout<<buffer<<" is connected!"<<endl;
+    memset(buffer, 0, BUFF_SIZE);
 
     while (true) {
         int bytes_read = recv(client_socket, buffer, BUFF_SIZE, 0);
-        if (bytes_read <= 0) {
-            break;
+        cout<<client_name<<": "<<buffer<<endl;
+        for(int i=0; i<sockets.size(); i++){
+          if(sockets[i] == client_socket) continue;
+          string message = client_name + ": " + string(buffer);
+          send(sockets[i], message.c_str(), message.size(), 0);
         }
-        {
-            lock_guard<mutex> lock(locker);
-            cout << "Received message from client: " << buffer << endl;
-        }
-        send(client_socket, buffer, bytes_read, 0);
-        memset(buffer, 0, BUFF_SIZE);
     }
-
     close(client_socket);
 }
+
+
 
 void init_server(const char *port){
   int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,10 +80,9 @@ void init_server(const char *port){
 
   cout<<"server is started on port: "<<server_address.sin_port<<"... waiting for incoming connections"<<endl;
   
-  vector<int> client_list;
   vector<thread> threads;
   struct sockaddr_in client_address;
-  while(true){
+   while(true){
     socklen_t client_address_size = sizeof(client_address);
     int client_socket = accept(server_socket, (struct sockaddr*)&client_address, &client_address_size);
     if(client_socket == -1){
@@ -90,7 +98,8 @@ void init_server(const char *port){
     //struct server_codition condition;
     //condition.client_socket = client_socket;
     //condition.client_list = client_list;
-    threads.emplace_back(handle, client_socket);
+    sockets.emplace_back(client_socket);
+    threads.emplace_back(handle,client_socket);
   }
     for (auto &t : threads) {
         t.join();
