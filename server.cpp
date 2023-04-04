@@ -11,21 +11,38 @@
 #include <string>
 #include <pthread.h>
 #include <vector>
+#include <mutex>
+#include <thread>
 
 #define BUFF_SIZE 1024
 #define LOCALHOST "127.0.0.1"
+#define MAX_CLIENTS 5
 using namespace std;
+mutex locker;
 
 struct server_codition{
   int client_socket;
   vector<int> client_list;
 };
 
-void* handle(void *arg){
-  struct server_codition condition = *((server_codition*)arg);
-  string first_message = "Welcome to the club, body!";
-  send(condition.client_socket, first_message.c_str(), first_message.length(), 0);
-  return nullptr;
+void handle(int client_socket){
+    char buffer[BUFF_SIZE];
+    memset(buffer, 0, BUFF_SIZE);
+
+    while (true) {
+        int bytes_read = recv(client_socket, buffer, BUFF_SIZE, 0);
+        if (bytes_read <= 0) {
+            break;
+        }
+        {
+            lock_guard<mutex> lock(locker);
+            cout << "Received message from client: " << buffer << endl;
+        }
+        send(client_socket, buffer, bytes_read, 0);
+        memset(buffer, 0, BUFF_SIZE);
+    }
+
+    close(client_socket);
 }
 
 void init_server(const char *port){
@@ -46,7 +63,7 @@ void init_server(const char *port){
     exit(EXIT_FAILURE);
   }
   
-  if(listen(server_socket, 1) == -1){
+  if(listen(server_socket, MAX_CLIENTS) == -1){
     cerr<<"listen_error"<<endl;
     close(server_socket);
     exit(EXIT_FAILURE);
@@ -54,32 +71,32 @@ void init_server(const char *port){
 
   cout<<"server is started on port: "<<server_address.sin_port<<"... waiting for incoming connections"<<endl;
   
-  vector<int> client_list = {0};
+  vector<int> client_list;
+  vector<thread> threads;
   struct sockaddr_in client_address;
-
-  socklen_t client_address_size = sizeof(client_address);
   while(true){
+    socklen_t client_address_size = sizeof(client_address);
     int client_socket = accept(server_socket, (struct sockaddr*)&client_address, &client_address_size);
     if(client_socket == -1){
       cerr<<"accept_error"<<endl;
     }
-    client_list.push_back(client_socket);
-    cout<<"client "<<client_list.size()<<" "<<" is connected"<<endl;
-    struct server_codition condition;
-    condition.client_socket = client_socket;
-    condition.client_list = client_list;
-    
-    pthread_t thread;
-    int rc = pthread_create(&thread, nullptr, handle, &condition);
-    if (rc){
-      cout<<"pthread_create_error"<<endl;
-      exit(EXIT_FAILURE);
+
+    {
+      lock_guard<mutex> lock(locker);
+      cout<<"New client connected"<<endl;
+    }
+    //client_list.push_back(client_socket);
+    //cout<<"client "<<client_list.size()<<" "<<" is connected"<<endl;
+    //struct server_codition condition;
+    //condition.client_socket = client_socket;
+    //condition.client_list = client_list;
+    threads.emplace_back(handle, client_socket);
+  }
+    for (auto &t : threads) {
+        t.join();
     }
 
-  }
-
-  close(server_socket);
+    close(server_socket);
 }
-
 
 
