@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <cstring>
 #include <string>
+#include <thread>
 
 #define BUFF_SIZE 1024
 using namespace std;
@@ -15,16 +16,18 @@ using namespace std;
 void read_message(int socket){
   char buffer[BUFF_SIZE];
   memset(buffer, 0, BUFF_SIZE);
-  int readed_size = recv(socket, buffer, BUFF_SIZE-1, 0);
-  cout<<buffer<<endl;
+  while(true){
+    memset(buffer, 0, BUFF_SIZE);
+    int readed_size = recv(socket, buffer, BUFF_SIZE-1, 0);
+    if(readed_size <= 0) break;
+    cout<<buffer<<endl;
+  }
 }
 
 void send_message(int socket){
-  char buffer[BUFF_SIZE];
-  memset(buffer, 0, BUFF_SIZE);
-  cout<<"You: ";
   string message;
   getline(cin, message);
+  if(message.size() == 0) return;
   send(socket, message.c_str(), message.size(), 0);
 }
 
@@ -46,15 +49,22 @@ void init_client(const char *ip, const char *port){
     close(client_socket);
     exit(EXIT_FAILURE);
   }
+
+  thread thread_read(read_message,client_socket);
   string name;
   getline(cin, name);
   send(client_socket, name.c_str(), name.size(), 0);
-
+  
   while(true){
-    read_message(client_socket);
-    send_message(client_socket);
+    string message;
+    getline(cin, message);
+    if (message.size() == 0) continue;
+    if (send(client_socket, message.c_str(), message.size(), 0)<0){
+      cerr<<"error sending message"<<endl;
+      break;
+    }
   }
-  cout<<"disconneting!"<<endl; 
+  thread_read.join();
   close(client_socket);
 
 }
