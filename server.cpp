@@ -42,6 +42,11 @@ void handle(int client_socket){
         memset(buffer, 0, BUFF_SIZE);
         int bytes_read = recv(client_socket, buffer, BUFF_SIZE, 0);
         if (bytes_read <= 0) continue;
+        if (string(buffer) == "exit()") {
+          send_message(client_socket, "Goodbuy!");
+          break;
+        }
+        
         cout<<client_name<<": "<<buffer<<endl;
         {
         lock_guard<mutex> lock(locker);
@@ -53,7 +58,6 @@ void handle(int client_socket){
         }
     }
     cout<<client_name<<" disconnected!";
-    close(client_socket);
 }
 
 
