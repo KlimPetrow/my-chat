@@ -33,3 +33,5 @@
 main.cpp
 main
 chat
+compile_commands.json
+.cache/clangd/index
