@@ -16,15 +16,18 @@ static void usage() {
 
 int main(int argc, char *argv[]) {
 
+  // TODO: BUG HERE
   if (argc < 2) {
     usage();
     exit(EXIT_FAILURE);
   }
-
+  
+  // TODO: Use `find()`
   if (argc == 3 && !strcmp(argv[1], "-s")) {
     // server mode
     init_server(argv[2]);
 
+  // TODO: Use `find()`
   } else if (argc == 4 && !strcmp(argv[1], "-c")) {
     // client mode
     init_client(argv[2], argv[3]);

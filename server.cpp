@@ -15,9 +15,13 @@
 
 #define BUFF_SIZE 1024
 #define LOCALHOST "127.0.0.1"
-#define MAX_CLIENTS 5
+#define MAX_IN_QUEUE 10
+#define MAX_CLIENTS 20
+
 using namespace std;
 mutex locker;
+// TODO: Use array for that
+// TODO: Don't use global variable
 vector<int> sockets;
 
 void send_message(int client_socket, string message) {
@@ -26,28 +30,29 @@ void send_message(int client_socket, string message) {
 
 void handle(int client_socket) {
   char buffer[BUFF_SIZE];
-  memset(buffer, 0, BUFF_SIZE);
+
+  // TODO: Send in cycle
   string first_message = "Hello! Enter you name, please: ";
-  strcpy(buffer, first_message.c_str());
-
   send(client_socket, first_message.c_str(), first_message.size(), 0);
-  memset(buffer, 0, BUFF_SIZE);
 
+  // TODO: Check return status and rename or don't name
+  memset(buffer, 0, BUFF_SIZE);
   int name_size = recv(client_socket, buffer, BUFF_SIZE, 0);
   string client_name = buffer;
   cout << client_name << " is connected!" << endl;
-  memset(buffer, 0, BUFF_SIZE);
 
   while (true) {
     memset(buffer, 0, BUFF_SIZE);
-    int bytes_read = recv(client_socket, buffer, BUFF_SIZE, 0);
-    if (bytes_read <= 0)
+    if (recv(client_socket, buffer, BUFF_SIZE, 0) <= 0)
       continue;
     if (string(buffer) == "exit()") {
-      cout << client_name << " disconnected!";
-      send_message(client_socket, "Goodbuy!");
+      cout << client_name << " disconnected!" << endl << flush;
+      send_message(client_socket, "Goodbye!");
       {
         lock_guard<mutex> lock(locker);
+        // TODO: Use size_t to supress warnings
+        // TODO: Try to use range for
+        // TODO: Use array for that
         for (int i = 0; i < sockets.size(); i++) {
           if (sockets[i] == client_socket) {
             sockets[i] = 0;
@@ -60,6 +65,8 @@ void handle(int client_socket) {
     cout << client_name << ": " << buffer << endl;
     {
       lock_guard<mutex> lock(locker);
+      // TODO: Use size_t to supress warnings
+      // TODO: Try to use range for
       for (int i = 0; i < sockets.size(); i++) {
         if (sockets[i] == client_socket || sockets[i] == 0)
           continue;
@@ -71,6 +78,7 @@ void handle(int client_socket) {
   close(client_socket);
 }
 
+// TODO: When shutdown server you should also properly shutdown all clients
 void init_server(const char *port) {
   int server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket == -1) {
@@ -90,7 +98,7 @@ void init_server(const char *port) {
     exit(EXIT_FAILURE);
   }
 
-  if (listen(server_socket, MAX_CLIENTS) == -1) {
+  if (listen(server_socket, MAX_IN_QUEUE) == -1) {
     cerr << "listen_error" << endl;
     close(server_socket);
     exit(EXIT_FAILURE);
@@ -113,10 +121,12 @@ void init_server(const char *port) {
 
     {
       lock_guard<mutex> lock(locker);
-      if (sockets.size() <= MAX_CLIENTS)
-        sockets.emplace_back(client_socket);
-      else
+      if (sockets.size() <= MAX_CLIENTS) {
+        sockets.push_back(client_socket);
+      } else {
+        close(client_socket);
         continue;
+      }
     }
 
     threads.emplace_back(handle, client_socket);

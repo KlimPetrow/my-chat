@@ -15,14 +15,12 @@ using namespace std;
 
 void read_message(int socket) {
   char buffer[BUFF_SIZE];
-  memset(buffer, 0, BUFF_SIZE);
   while (true) {
     memset(buffer, 0, BUFF_SIZE);
-    int readed_size = recv(socket, buffer, BUFF_SIZE - 1, 0);
-    if (readed_size <= 0)
+    if (recv(socket, buffer, BUFF_SIZE - 1, 0) <= 0)
       break;
     cout << buffer << endl;
-    if (string(buffer) == "Goodbuy!")
+    if (string(buffer) == "Goodbye!")
       break;
   }
 }
