@@ -19,8 +19,9 @@ void read_message(int socket){
   while(true){
     memset(buffer, 0, BUFF_SIZE);
     int readed_size = recv(socket, buffer, BUFF_SIZE-1, 0);
-    if(readed_size <= 0 || string(buffer) == "Goodbuy!") break;
+    if(readed_size <= 0 ) break;
     cout<<buffer<<endl;
+    if(string(buffer) == "Goodbuy!") break;
   }
 }
 
@@ -52,7 +53,10 @@ void init_client(const char *ip, const char *port){
   while(true){
     string message;
     getline(cin, message);
-    if (message == "exit()") break;
+    if (message == "exit()") {
+      send(client_socket, message.c_str(), message.size(), 0);
+      break;
+    }
     if (message.size() == 0) continue;
     if (send(client_socket, message.c_str(), message.size(), 0)<0){
       cerr<<"error sending message"<<endl;

@@ -43,21 +43,30 @@ void handle(int client_socket){
         int bytes_read = recv(client_socket, buffer, BUFF_SIZE, 0);
         if (bytes_read <= 0) continue;
         if (string(buffer) == "exit()") {
+          cout<<client_name<<" disconnected!";
           send_message(client_socket, "Goodbuy!");
+          {
+            lock_guard<mutex> lock(locker);
+            for(int i=0;i<sockets.size();i++){
+              if(sockets[i]==client_socket) {
+                sockets[i] = 0;
+              }
+            }
           break;
+          }
         }
         
         cout<<client_name<<": "<<buffer<<endl;
         {
         lock_guard<mutex> lock(locker);
         for(int i=0; i<sockets.size(); i++){
-          if(sockets[i] == client_socket) continue;
+          if(sockets[i] == client_socket || sockets[i] == 0) continue;
           string message = client_name + ": " + string(buffer);
           send_message(sockets[i], message);
         }
         }
     }
-    cout<<client_name<<" disconnected!";
+    close(client_socket);
 }
 
 
@@ -102,16 +111,16 @@ void init_server(const char *port){
       lock_guard<mutex> lock(locker);
       if (sockets.size() <= MAX_CLIENTS) sockets.emplace_back(client_socket);
       else continue;
-      cout<<"New client connected"<<endl;
     }
 
     threads.emplace_back(handle,client_socket);
   }
-    for (auto &t : threads) {
-        t.join();
-    }
 
-    close(server_socket);
+  for (auto &t : threads) {
+    t.join();
+  }
+
+  close(server_socket);
 }
 
 
