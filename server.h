@@ -3,7 +3,7 @@
 #include <vector>
 using namespace std;
 
-struct client_list{
+struct client_list {
   vector<string> names;
   vector<int> sockets;
 };
@@ -11,5 +11,3 @@ struct client_list{
 void init_server(const char *port);
 
 void handle(int);
-
-
