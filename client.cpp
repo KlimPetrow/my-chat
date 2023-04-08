@@ -22,6 +22,10 @@ void read_message(int socket) {
     cout << buffer << endl;
     if (string(buffer) == "Goodbye!")
       break;
+    if (string(buffer) == "server is stoped! disconnecting...") {
+      close(socket);
+      exit(EXIT_SUCCESS);
+    }
   }
 }
 

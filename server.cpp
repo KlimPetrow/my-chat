@@ -16,28 +16,51 @@
 #define BUFF_SIZE 1024
 #define LOCALHOST "127.0.0.1"
 #define MAX_IN_QUEUE 10
-#define MAX_CLIENTS 20
+#define MAX_CLIENTS 5
 
 using namespace std;
 mutex locker;
-// TODO: Use array for that
-// TODO: Don't use global variable
-vector<int> sockets;
 
 void send_message(int client_socket, string message) {
   send(client_socket, message.c_str(), message.size(), 0);
 }
 
-void handle(int client_socket) {
+void server_shutdown(int *sockets_array, int server_socket) {
+  string stop_message = "server is stoped! disconnecting...";
+  {
+    lock_guard<mutex> lock(locker);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+      if (sockets_array[i] == 0)
+        continue;
+      send_message(sockets_array[i], stop_message);
+      close(sockets_array[i]);
+    }
+  }
+  close(server_socket);
+  exit(EXIT_SUCCESS);
+}
+
+void server_handler(int *sockets_array, int server_socket) {
+  while (true) {
+    string command;
+    getline(cin, command);
+    if (command == "stop_server()") {
+      server_shutdown(sockets_array, server_socket);
+    }
+  }
+}
+
+void handle(int client_socket, int *socket_array) {
   char buffer[BUFF_SIZE];
 
-  // TODO: Send in cycle
   string first_message = "Hello! Enter you name, please: ";
-  send(client_socket, first_message.c_str(), first_message.size(), 0);
+  send_message(client_socket, first_message);
 
-  // TODO: Check return status and rename or don't name
   memset(buffer, 0, BUFF_SIZE);
-  int name_size = recv(client_socket, buffer, BUFF_SIZE, 0);
+  if (recv(client_socket, buffer, BUFF_SIZE, 0) < 0) {
+    cerr << "recv_error" << endl;
+    exit(EXIT_FAILURE);
+  }
   string client_name = buffer;
   cout << client_name << " is connected!" << endl;
 
@@ -46,39 +69,37 @@ void handle(int client_socket) {
     if (recv(client_socket, buffer, BUFF_SIZE, 0) <= 0)
       continue;
     if (string(buffer) == "exit()") {
-      cout << client_name << " disconnected!" << endl << flush;
+      string disconnect_message = client_name + " disconnected!";
+      cout << disconnect_message << endl << flush;
       send_message(client_socket, "Goodbye!");
       {
         lock_guard<mutex> lock(locker);
-        // TODO: Use size_t to supress warnings
-        // TODO: Try to use range for
-        // TODO: Use array for that
-        for (int i = 0; i < sockets.size(); i++) {
-          if (sockets[i] == client_socket) {
-            sockets[i] = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+          if (socket_array[i] == client_socket) {
+            socket_array[i] = 0;
+            continue;
           }
+          if (socket_array[i] == 0)
+            continue;
+          send_message(socket_array[i], disconnect_message);
         }
         break;
       }
     }
-
-    cout << client_name << ": " << buffer << endl;
+    string message = client_name + ": " + string(buffer);
+    cout << message << endl;
     {
       lock_guard<mutex> lock(locker);
-      // TODO: Use size_t to supress warnings
-      // TODO: Try to use range for
-      for (int i = 0; i < sockets.size(); i++) {
-        if (sockets[i] == client_socket || sockets[i] == 0)
+      for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (socket_array[i] == client_socket || socket_array[i] == 0)
           continue;
-        string message = client_name + ": " + string(buffer);
-        send_message(sockets[i], message);
+        send_message(socket_array[i], message);
       }
     }
   }
   close(client_socket);
 }
 
-// TODO: When shutdown server you should also properly shutdown all clients
 void init_server(const char *port) {
   int server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket == -1) {
@@ -106,6 +127,8 @@ void init_server(const char *port) {
 
   cout << "server is started on port: " << server_address.sin_port
        << "... waiting for incoming connections" << endl;
+  int sockets[MAX_CLIENTS] = {0};
+  thread std_input(server_handler, sockets, server_socket);
 
   vector<thread> threads;
   struct sockaddr_in client_address;
@@ -121,16 +144,18 @@ void init_server(const char *port) {
 
     {
       lock_guard<mutex> lock(locker);
-      if (sockets.size() <= MAX_CLIENTS) {
-        sockets.push_back(client_socket);
-      } else {
-        close(client_socket);
-        continue;
+      for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (sockets[i] == 0) {
+          sockets[i] = client_socket;
+          break;
+        }
       }
     }
 
-    threads.emplace_back(handle, client_socket);
+    threads.emplace_back(handle, client_socket, sockets);
   }
+
+  std_input.join();
 
   for (auto &t : threads) {
     t.join();
