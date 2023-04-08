@@ -51,7 +51,11 @@ void init_client(const char *ip, const char *port) {
 
   thread thread_read(read_message, client_socket);
   string name;
-  getline(cin, name);
+  while (true) {
+    getline(cin, name);
+    if (name.size() != 0)
+      break;
+  }
   send(client_socket, name.c_str(), name.size(), 0);
 
   while (true) {
