@@ -1,15 +1,13 @@
 #pragma once
 #include <string>
-#include <vector>
 using namespace std;
 
-struct client_list{
-  vector<string> names;
-  vector<int> sockets;
-};
+void init_server(const char *);
 
-void init_server(const char *port);
+void handle(int, int *);
 
-void handle(int);
+void send_message(int, string);
 
+void server_handler(int *, int);
 
+void server_shutdown(int *, int);
